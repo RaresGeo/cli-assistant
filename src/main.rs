@@ -323,6 +323,85 @@ fn main() -> Result<()> {
     }
 
     assistant.send_prompt(prompt, args.model, args.temperature)?;
-    
+
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_config_default() {
+        let config = Config::default();
+        assert_eq!(config.default_model, "llama3.2");
+        assert_eq!(config.ollama_host, "http://host.docker.internal:11434");
+        assert_eq!(config.temperature, 0.7);
+        assert_eq!(config.stream, true);
+    }
+
+    #[test]
+    fn test_config_serialization() {
+        let config = Config::default();
+        let serialized = toml::to_string(&config).expect("Failed to serialize config");
+        assert!(serialized.contains("default_model"));
+        assert!(serialized.contains("llama3.2"));
+    }
+
+    #[test]
+    fn test_config_deserialization() {
+        let toml_str = r#"
+            default_model = "llama3.2"
+            ollama_host = "http://localhost:11434"
+            temperature = 0.5
+            stream = false
+        "#;
+        let config: Config = toml::from_str(toml_str).expect("Failed to deserialize config");
+        assert_eq!(config.default_model, "llama3.2");
+        assert_eq!(config.ollama_host, "http://localhost:11434");
+        assert_eq!(config.temperature, 0.5);
+        assert_eq!(config.stream, false);
+    }
+
+    #[test]
+    fn test_ollama_request_creation() {
+        let request = OllamaRequest {
+            model: String::from("llama3.2"),
+            prompt: String::from("Hello"),
+            temperature: 0.7,
+            stream: true,
+        };
+        assert_eq!(request.model, "llama3.2");
+        assert_eq!(request.prompt, "Hello");
+        assert_eq!(request.temperature, 0.7);
+        assert_eq!(request.stream, true);
+    }
+
+    #[test]
+    fn test_ollama_request_serialization() {
+        let request = OllamaRequest {
+            model: String::from("llama3.2"),
+            prompt: String::from("Test prompt"),
+            temperature: 0.8,
+            stream: false,
+        };
+        let json = serde_json::to_string(&request).expect("Failed to serialize request");
+        assert!(json.contains("llama3.2"));
+        assert!(json.contains("Test prompt"));
+    }
+
+    #[test]
+    fn test_ollama_response_deserialization() {
+        let json = r#"{"response": "Test response"}"#;
+        let response: OllamaResponse = serde_json::from_str(json).expect("Failed to deserialize response");
+        assert_eq!(response.response, "Test response");
+    }
+
+    #[test]
+    fn test_ollama_stream_response_deserialization() {
+        let json = r#"{"response": "Test", "done": false}"#;
+        let response: OllamaStreamResponse = serde_json::from_str(json).expect("Failed to deserialize stream response");
+        assert_eq!(response.response, "Test");
+        assert_eq!(response.done, false);
+    }
 }
